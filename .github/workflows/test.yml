@@ -3,15 +3,18 @@ name: Test
 on: [push]
 
 jobs:
-  Test:
+  Tests:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
         uses: actions/checkout@v2
 
-      - name: Install libs       
+      - name: Install libs
         run: npm i
-        
-      - name: Run tests
-        run: npm run test
+
+      - name: Run tests home work 1
+        run: npm run test --findRelatedTests home_1/index.test.ts
+
+      # - name: Run tests work 2
+      #   run: npm run test
