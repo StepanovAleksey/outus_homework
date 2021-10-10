@@ -1,0 +1,3 @@
+type UObject = any;
+
+
