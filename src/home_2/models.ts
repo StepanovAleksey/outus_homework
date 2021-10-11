@@ -1,5 +1,5 @@
 import { Worker } from "worker_threads";
-export type typeCommand = ESystemCommandType | string;
+export type typeCommand = any;
 
 export enum ECommandType {
   info = "info",
@@ -20,6 +20,10 @@ export enum EStatusProcess {
   worked = "worked",
   stopped = "stopped",
   error = "error",
+}
+export interface IChildWorker {
+  workerRef: Worker;
+  status: EStatusProcess;
 }
 
 export interface ICommand<T = typeCommand> {
@@ -58,11 +62,4 @@ export class CodeCommand extends Command<string> {
   constructor(public payload: string) {
     super(ECommandType.code, payload);
   }
-}
-
-export type WorkerCallback = (err: any, result?: any) => any;
-
-export interface IChildWorker {
-  workerRef: Worker;
-  status: EStatusProcess;
 }

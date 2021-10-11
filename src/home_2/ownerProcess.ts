@@ -1,28 +1,60 @@
 import { Worker } from "worker_threads";
 import { uuid } from "uuidv4";
 import {
-  ECommandType,
   ErrorCommand,
+  EStatusProcess,
   ESystemCommandType,
+  IChildWorker,
   ICommand,
 } from "./models";
+import { BaseWorkerModel } from "./shared";
 
 const workerPathJS = "./build/home_2/childProcess.js";
 
-export class OwnerProcessModel {
-  allCommands: ICommand[] = [];
-  childWorker: Worker = null;
+export class OwnerProcessModel extends BaseWorkerModel {
+  childWorker: IChildWorker = {
+    status: EStatusProcess.unknown,
+    workerRef: null,
+  };
+
+  protected handleErrorCommand(command: ICommand<string>) {
+    console.error(command.payload);
+  }
+
+  protected handleSystemCommand(command: ICommand<ESystemCommandType>) {
+    switch (command.payload) {
+      case ESystemCommandType.start:
+        this.childWorker.workerRef = this.runWorker();
+        this.childWorker.status = EStatusProcess.worked;
+        break;
+      case ESystemCommandType.softStop:
+        this.pushChildProcessCommand(command);
+        break;
+      case ESystemCommandType.hardStop:
+        this.childWorker.workerRef.unref();
+        this.childWorker.workerRef = null;
+        this.childWorker.status = EStatusProcess.stopped;
+        break;
+      case ESystemCommandType.commandComplete:
+        const indexCommand = this.allCommands.findIndex(
+          (c) => c.uid === command.uid
+        );
+        this.allCommands.splice(indexCommand, 1);
+        break;
+    }
+  }
+
+  protected handleInfoCommand(command: ICommand<string>) {
+    this.pushChildProcessCommand(command);
+  }
+
+  protected handleCodeCommand(command: ICommand<string>) {
+    this.pushChildProcessCommand(command);
+  }
 
   public addCommand(command: ICommand) {
     command.uid = command.uid || uuid();
-    switch (command.type) {
-      case ECommandType.system:
-        this.handlerSystemCommand(command as ICommand<ESystemCommandType>);
-        break;
-      default:
-        this.pushChildProcessCommand(command);
-        break;
-    }
+    this.registerCommand(command);
   }
 
   private runWorker() {
@@ -32,8 +64,8 @@ export class OwnerProcessModel {
     worker.on("error", this.collbackWorkerMsg.bind(this));
 
     worker.on("exit", (exitCode) => {
+      this.childWorker = null;
       if (exitCode === 0) {
-        this.childWorker = null;
         return null;
       }
       return this.collbackWorkerMsg(
@@ -44,40 +76,9 @@ export class OwnerProcessModel {
     return worker;
   }
   private collbackWorkerMsg(command: ICommand) {
-    switch (command.type) {
-      case ECommandType.system:
-        if (command.payload === ESystemCommandType.commandComplete) {
-          const finfIndex = this.allCommands.findIndex(
-            (c) => c.uid === command.uid
-          );
-          this.allCommands.splice(finfIndex, 1);
-        }
-        break;
-      case ECommandType.error:
-        console.error("child process error:", command.payload);
-        break;
-    }
-  }
-  private handlerSystemCommand(command: ICommand<ESystemCommandType>) {
-    switch (command.payload) {
-      case ESystemCommandType.start:
-        this.childWorker = this.runWorker();
-        break;
-      case ESystemCommandType.softStop:
-        this.pushChildProcessCommand(command);
-        break;
-      case ESystemCommandType.hardStop:
-        this.childWorker.unref();
-        console.log(
-          "hardStop! не обработанных комманд: ",
-          this.allCommands.length
-        );
-        this.childWorker = null;
-        break;
-    }
+    this.registerCommand(command);
   }
   private pushChildProcessCommand(command: ICommand) {
-    this.allCommands.push(command);
-    this.childWorker?.postMessage(command);
+    this.childWorker.workerRef?.postMessage(command);
   }
 }

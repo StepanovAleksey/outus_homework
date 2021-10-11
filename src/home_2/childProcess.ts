@@ -1,10 +1,23 @@
 import { parentPort } from "worker_threads";
+import { ICommand, ESystemCommandType } from "./models";
+import { BaseWorkerModel } from "./shared";
 
-console.log("started!!!");
-const commands = [];
-let isEvolveCommand = false;
-let isSoftStop = false;
-
+class ChildWorkerModel extends BaseWorkerModel {
+  isSoftStop = false;
+  protected handleInfoCommand(command: ICommand<string>) {
+    throw new Error("Method not implemented.");
+  }
+  protected handleErrorCommand(command: ICommand<string>) {
+    throw new Error("Method not implemented.");
+  }
+  protected handleSystemCommand(command: ICommand<ESystemCommandType>) {
+    throw new Error("Method not implemented.");
+  }
+  protected handleCodeCommand(command: ICommand<string>) {
+    throw new Error("Method not implemented.");
+  }
+}
+const childWorker = new ChildWorkerModel();
 parentPort.on("message", (command) => {
   commands.push(command);
   if (!isEvolveCommand) {
