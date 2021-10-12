@@ -5,7 +5,7 @@
   "main": "index.ts",
   "scripts": {
     "test": "jest",
-    "start:dev": "nodemon"
+    "start:dev": "npx tsc && nodemon"
   },
   "author": "Alexey Stepanov",
   "license": "ISC",

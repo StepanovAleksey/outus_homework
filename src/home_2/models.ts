@@ -1,4 +1,6 @@
 import { Worker } from "worker_threads";
+import { v4 } from "uuid";
+
 export type typeCommand = any;
 
 export enum ECommandType {
@@ -13,6 +15,7 @@ export enum ESystemCommandType {
   hardStop = "hard stop",
   softStop = "soft stop",
   commandComplete = "command complete",
+  isStarted = "isStarted",
 }
 
 export enum EStatusProcess {
@@ -36,13 +39,13 @@ class Command<T = typeCommand> implements ICommand<T> {
   constructor(
     public type = ECommandType.info,
     public payload: T,
-    public uid = null
+    public uid = v4()
   ) {}
 }
 
 export class SystemCommand extends Command<ESystemCommandType> {
-  constructor(public payload: ESystemCommandType) {
-    super(ECommandType.system, payload);
+  constructor(public payload: ESystemCommandType, uid?: string) {
+    super(ECommandType.system, payload, uid);
   }
 }
 

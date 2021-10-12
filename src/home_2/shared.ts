@@ -1,10 +1,15 @@
-import { ECommandType, ESystemCommandType, ICommand } from "./models";
+import {
+  ECommandType,
+  ESystemCommandType,
+  ICommand,
+  SystemCommand,
+} from "./models";
 
 type handleFuncType = (command: ICommand) => any;
 
 export abstract class BaseWorkerModel {
-  protected allCommands: ICommand[] = [];
-  private isEvolveCommand = false;
+  allCommands: ICommand[] = [];
+  protected isEvolveCommand = false;
 
   private handleDictionary: Record<ECommandType, handleFuncType> = {
     [ECommandType.code]: this.handleCodeCommand.bind(this),
@@ -15,21 +20,39 @@ export abstract class BaseWorkerModel {
 
   constructor() {}
 
-  registerCommand(command: ICommand) {
+  public registerCommand(command: ICommand) {
     this.allCommands.push(command);
     this.evolveCommand();
   }
-
-  private evolveCommand() {
+  protected evolveCommand() {
     if (this.isEvolveCommand) {
       return;
     }
-    const command = this.allCommands.shift();
-    this.isEvolveCommand = !!command;
-    this.handleDictionary[command.type](command);
-    this.isEvolveCommand = false;
-    this.evolveCommand();
-  } 
+    try {
+      const command = this.allCommands.shift();
+      this.isEvolveCommand = !!command;
+      if (!this.isEvolveCommand) {
+        return;
+      }
+      this.handleDictionary[command.type](command);
+      this.isEvolveCommand = false;
+      this.parentCmpleteCommandMessage(command.uid);
+
+      this.evolveCommand();
+    } catch (error) {
+      throw error;
+    } finally {
+      this.isEvolveCommand = false;
+    }
+  }
+
+  protected parentCmpleteCommandMessage(commandUId: string) {
+    this.sendParentCommand(
+      new SystemCommand(ESystemCommandType.commandComplete, commandUId)
+    );
+  }
+
+  protected abstract sendParentCommand(command: ICommand);
 
   protected abstract handleInfoCommand(command: ICommand<string>): any;
   protected abstract handleErrorCommand(command: ICommand<string>): any;

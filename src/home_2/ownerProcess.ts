@@ -10,22 +10,39 @@ import {
 import { BaseWorkerModel } from "./shared";
 
 const workerPathJS = "./build/home_2/childProcess.js";
+type collbackCommand = (command: ICommand) => any;
 
 export class OwnerProcessModel extends BaseWorkerModel {
   childWorker: IChildWorker = {
     status: EStatusProcess.unknown,
     workerRef: null,
   };
+  collbacks: { [key in ESystemCommandType]?: collbackCommand[] } = {};
+
+  public registerCommand(command: ICommand) {
+    command.uid = command.uid || uuid();
+    super.registerCommand(command);
+  }
+
+  public addSystemMsgCollback(
+    type: ESystemCommandType,
+    collback: collbackCommand
+  ) {
+    if (!this.collbacks[type]) {
+      this.collbacks[type] = [];
+    }
+    this.collbacks[type].push(collback);
+  }
 
   protected handleErrorCommand(command: ICommand<string>) {
-    console.error(command.payload);
+    console.info("child process has error:", command.payload);
+    this.completedCommand(command.uid);
   }
 
   protected handleSystemCommand(command: ICommand<ESystemCommandType>) {
     switch (command.payload) {
       case ESystemCommandType.start:
         this.childWorker.workerRef = this.runWorker();
-        this.childWorker.status = EStatusProcess.worked;
         break;
       case ESystemCommandType.softStop:
         this.pushChildProcessCommand(command);
@@ -35,13 +52,19 @@ export class OwnerProcessModel extends BaseWorkerModel {
         this.childWorker.workerRef = null;
         this.childWorker.status = EStatusProcess.stopped;
         break;
-      case ESystemCommandType.commandComplete:
-        const indexCommand = this.allCommands.findIndex(
-          (c) => c.uid === command.uid
-        );
-        this.allCommands.splice(indexCommand, 1);
+      case ESystemCommandType.isStarted:
+        this.childWorker.status = EStatusProcess.worked;
         break;
     }
+    this.collbacks[command.payload]?.forEach((c) => c(command));
+    this.completedCommand(command.uid);
+  }
+
+  private completedCommand(commandUId: string) {
+    const indexCommand = this.allCommands.findIndex(
+      (c) => c.uid === commandUId
+    );
+    this.allCommands.splice(indexCommand, 1);
   }
 
   protected handleInfoCommand(command: ICommand<string>) {
@@ -52,33 +75,31 @@ export class OwnerProcessModel extends BaseWorkerModel {
     this.pushChildProcessCommand(command);
   }
 
-  public addCommand(command: ICommand) {
-    command.uid = command.uid || uuid();
-    this.registerCommand(command);
-  }
-
   private runWorker() {
     const worker = new Worker(workerPathJS);
 
-    worker.on("message", this.collbackWorkerMsg.bind(this));
-    worker.on("error", this.collbackWorkerMsg.bind(this));
+    worker.on("message", this.registerCommand.bind(this));
+    worker.on("error", this.registerCommand.bind(this));
 
     worker.on("exit", (exitCode) => {
-      this.childWorker = null;
       if (exitCode === 0) {
+        this.childWorker.status = EStatusProcess.stopped;
         return null;
       }
-      return this.collbackWorkerMsg(
-        new ErrorCommand("worker is error stopped")
+      this.childWorker.status = EStatusProcess.error;
+      return this.registerCommand(
+        new ErrorCommand(`worker is error stopped. exitCode: ${exitCode}`)
       );
     });
 
     return worker;
   }
-  private collbackWorkerMsg(command: ICommand) {
-    this.registerCommand(command);
-  }
+
   private pushChildProcessCommand(command: ICommand) {
     this.childWorker.workerRef?.postMessage(command);
+  }
+
+  protected sendParentCommand(command: ICommand) {
+    // console.log(`it's owner process! commandUId: `, command.uid);
   }
 }

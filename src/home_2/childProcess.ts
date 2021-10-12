@@ -1,88 +1,60 @@
 import { parentPort } from "worker_threads";
-import { ICommand, ESystemCommandType } from "./models";
+import {
+  ICommand,
+  ESystemCommandType,
+  ErrorCommand,
+  SystemCommand,
+} from "./models";
 import { BaseWorkerModel } from "./shared";
 
 class ChildWorkerModel extends BaseWorkerModel {
   isSoftStop = false;
+
+  constructor() {
+    super();
+    this.sendParentCommand(new SystemCommand(ESystemCommandType.isStarted));
+  }
+
   protected handleInfoCommand(command: ICommand<string>) {
-    throw new Error("Method not implemented.");
+    console.info("child process info:", command.payload);
   }
+
   protected handleErrorCommand(command: ICommand<string>) {
-    throw new Error("Method not implemented.");
+    console.error("child process error:", command);
   }
+
   protected handleSystemCommand(command: ICommand<ESystemCommandType>) {
-    throw new Error("Method not implemented.");
+    switch (command.payload) {
+      case ESystemCommandType.softStop:
+        this.isSoftStop = true;
+        this.parentCmpleteCommandMessage(command.uid);
+        process.exit(0);
+    }
   }
   protected handleCodeCommand(command: ICommand<string>) {
-    throw new Error("Method not implemented.");
+    eval(command.payload);
+  }
+  protected sendParentCommand(command: ICommand) {
+    parentPort.postMessage(command);
+  }
+
+  protected evolveCommand() {
+    try {
+      super.evolveCommand();
+    } catch (error) {
+      this.sendParentCommand(new ErrorCommand(error as string));
+    }
+  }
+
+  registerCommand(command: ICommand) {
+    if (this.isSoftStop) {
+      return;
+    }
+    super.registerCommand(command);
   }
 }
+
 const childWorker = new ChildWorkerModel();
-parentPort.on("message", (command) => {
-  commands.push(command);
-  if (!isEvolveCommand) {
-    const nextCommand = commands.shift();
-    evolveCommand(nextCommand);
-  }
+parentPort.on("message", (command: ICommand) => {
+  childWorker.registerCommand(command);
 });
-
-function evolveSystemCommand(command) {
-  switch (command.payload) {
-    case "soft stop":
-      isSoftStop = true;
-  }
-}
-
-function evolveCommand(command) {
-  isEvolveCommand = true;
-  try {
-    switch (command.type) {
-      case "info":
-        console.log("child process info:", command.payload);
-        break;
-      case "code":
-        eval(command.payload);
-        break;
-      case "system":
-        evolveSystemCommand(command);
-        break;
-    }
-    parentCmpleteCommandMessage(command.uid);
-  } catch (error) {
-    parentErrorMessage(`child process  error: ${error}`, command.uid);
-  } finally {
-    isEvolveCommand = false;
-    const nextCommand = commands.shift();
-    if (nextCommand) {
-      evolveCommand(nextCommand);
-    } else if (isSoftStop) {
-      process.exit(0);
-    }
-  }
-}
-
-function parentPostMessage(message) {
-  const postMessage = {
-    type: "info",
-    payload: message,
-  };
-  parentPort.postMessage(postMessage);
-}
-
-function parentCmpleteCommandMessage(commandUId) {
-  const postMessage = {
-    type: "system",
-    payload: "command complete",
-    uid: commandUId,
-  };
-  parentPort.postMessage(postMessage);
-}
-
-function parentErrorMessage(error, commandUId) {
-  const postMessage = {
-    type: "error",
-    payload: error,
-    uid: commandUId,
-  };
-  parentPort.postMessage(postMessage);
-}
