@@ -1,8 +1,11 @@
+import { DirectionAdapter } from "../home_1/direction";
 import { MovableAdapter } from "../home_1/move";
 import { MoveCommand } from "../home_1/move.command";
+import { RotateCommand } from "../home_1/rotate.command";
 import { VelocityAdapter } from "../home_1/velocity";
 import { BurnFuelCommand, CheckFuelCommand, FuelAdapter } from "./fuel";
 import { CommnadException, MacroCommand } from "./models";
+import { ChangeVelocityComamnd } from "./сhangeVelocity.command";
 
 test("CheckFuelComamnd test", () => {
   const tank = {};
@@ -49,4 +52,27 @@ test("MacroCommand test", () => {
       new BurnFuelCommand(fuelAdaper),
     ]).execute();
   }).toThrow(CommnadException);
+});
+
+test("ChangeVelocityComamnd test", () => {
+  const tank = {};
+  const burnFuel = 15;
+  const defaultFuel = 20;
+  const fuelAdaper = new FuelAdapter(tank, burnFuel).setValue(defaultFuel);
+  new MacroCommand([
+    new CheckFuelCommand(fuelAdaper),
+    new MoveCommand(
+      new MovableAdapter(tank).setValue({ x: 0, y: 0 }),
+      new VelocityAdapter(tank).setValue({ x: -2, y: -2 })
+    ),
+    new BurnFuelCommand(fuelAdaper),
+    new RotateCommand(
+      new DirectionAdapter(tank, { x: 1, y: 1 }).setValue({ x: 1, y: 1 })
+    ),
+    new ChangeVelocityComamnd(
+      new DirectionAdapter(tank),
+      new VelocityAdapter(tank)
+    ),
+  ]).execute();
+  expect(new VelocityAdapter(tank).getValue()).toEqual({ x: 0, y: 0 });
 });
