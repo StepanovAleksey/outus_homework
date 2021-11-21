@@ -1,6 +1,8 @@
 import { Worker } from "worker_threads";
 import { uuid } from "uuidv4";
 import {
+  AbstractCommandHandler,
+  ECommandType,
   ErrorCommand,
   EStatusProcess,
   ESystemCommandType,
@@ -10,14 +12,70 @@ import {
 import { BaseWorkerModel } from "./shared";
 
 const workerPathJS = "./build/home_2/childProcess.js";
+
 type collbackCommand = (command: ICommand) => any;
+
+class HandleChildCommand extends AbstractCommandHandler {
+  commandTypes = [ECommandType.info, ECommandType.code];
+  handle(command: ICommand<string>) {
+    // @ts-ignore
+    const self = this as OwnerProcessModel;
+    self.pushChildProcessCommand(command);
+  }
+}
+
+class HandleErrorCommand extends AbstractCommandHandler {
+  commandTypes = [ECommandType.error];
+  handle(command: ICommand<string>) {
+    // @ts-ignore
+    const self = this as OwnerProcessModel;
+    console.info("process has error:", command.payload);
+    self.completedCommand(command.uid);
+  }
+}
+
+class HandleSystemCommand extends AbstractCommandHandler {
+  commandTypes = [ECommandType.system];
+  handle(command: ICommand<ESystemCommandType>) {
+    // @ts-ignore
+    const self = this as OwnerProcessModel;
+    switch (command.payload) {
+      case ESystemCommandType.hardStop:
+      case ESystemCommandType.softStop:
+        self.pushChildProcessCommand(command);
+        break;
+      case ESystemCommandType.start:
+        self.childWorker.workerRef = self.runWorker();
+        break;
+      case ESystemCommandType.isStarted:
+        self.childWorker.status = EStatusProcess.worked;
+        break;
+      case ESystemCommandType.childStopped:
+        self.childWorker.status = EStatusProcess.stopped;
+        break;
+    }
+    self.systemCollbacks[command.payload]?.forEach((collback) =>
+      collback(command)
+    );
+    self.completedCommand(command.uid);
+  }
+}
 
 export class OwnerProcessModel extends BaseWorkerModel {
   childWorker: IChildWorker = {
     status: EStatusProcess.unknown,
     workerRef: null,
   };
-  collbacks: { [key in ESystemCommandType]?: collbackCommand[] } = {};
+  systemCollbacks: { [key in ESystemCommandType]?: collbackCommand[] } = {};
+
+  constructor() {
+    super();
+    this.handlers.push(
+      new HandleSystemCommand(),
+      new HandleErrorCommand(),
+      new HandleChildCommand()
+    );
+  }
 
   public registerCommand(command: ICommand) {
     command.uid = command.uid || uuid();
@@ -28,54 +86,19 @@ export class OwnerProcessModel extends BaseWorkerModel {
     type: ESystemCommandType,
     collback: collbackCommand
   ) {
-    if (!this.collbacks[type]) {
-      this.collbacks[type] = [];
+    if (!this.systemCollbacks[type]) {
+      this.systemCollbacks[type] = [];
     }
-    this.collbacks[type].push(collback);
+    this.systemCollbacks[type].push(collback);
   }
 
-  protected handleErrorCommand(command: ICommand<string>) {
-    console.info("child process has error:", command.payload);
-    this.completedCommand(command.uid);
-  }
-
-  protected handleSystemCommand(command: ICommand<ESystemCommandType>) {
-    switch (command.payload) {
-      case ESystemCommandType.start:
-        this.childWorker.workerRef = this.runWorker();
-        break;
-      case ESystemCommandType.softStop:
-        this.pushChildProcessCommand(command);
-        break;
-      case ESystemCommandType.hardStop:
-        this.childWorker.workerRef.unref();
-        this.childWorker.workerRef = null;
-        this.childWorker.status = EStatusProcess.stopped;
-        break;
-      case ESystemCommandType.isStarted:
-        this.childWorker.status = EStatusProcess.worked;
-        break;
-    }
-    this.collbacks[command.payload]?.forEach((c) => c(command));
-    this.completedCommand(command.uid);
-  }
-
-  private completedCommand(commandUId: string) {
+  public completedCommand(commandUId: string) {
     const indexCommand = this.allCommands.findIndex(
       (c) => c.uid === commandUId
     );
     this.allCommands.splice(indexCommand, 1);
   }
-
-  protected handleInfoCommand(command: ICommand<string>) {
-    this.pushChildProcessCommand(command);
-  }
-
-  protected handleCodeCommand(command: ICommand<string>) {
-    this.pushChildProcessCommand(command);
-  }
-
-  private runWorker() {
+  public runWorker() {
     const worker = new Worker(workerPathJS);
 
     worker.on("message", this.registerCommand.bind(this));
@@ -91,15 +114,11 @@ export class OwnerProcessModel extends BaseWorkerModel {
         new ErrorCommand(`worker is error stopped. exitCode: ${exitCode}`)
       );
     });
-
+    this.childWorker.status = EStatusProcess.worked;
     return worker;
   }
 
-  private pushChildProcessCommand(command: ICommand) {
+  public pushChildProcessCommand(command: ICommand) {
     this.childWorker.workerRef?.postMessage(command);
-  }
-
-  protected sendParentCommand(command: ICommand) {
-    // console.log(`it's owner process! commandUId: `, command.uid);
   }
 }

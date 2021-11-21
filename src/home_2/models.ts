@@ -8,14 +8,16 @@ export enum ECommandType {
   code = "code",
   system = "system",
   error = "error",
+  completeCommand = "completeCommand",
 }
 
 export enum ESystemCommandType {
   start = "start",
   hardStop = "hard stop",
   softStop = "soft stop",
-  commandComplete = "command complete",
+  completeCommand = "command complete",
   isStarted = "isStarted",
+  childStopped = "childStopped",
 }
 
 export enum EStatusProcess {
@@ -35,18 +37,26 @@ export interface ICommand<T = typeCommand> {
   uid?: string;
 }
 
+export interface ICommandHandler {
+  commandTypes: ECommandType[];
+  handle(command: ICommand): void;
+  isCommandType: (commandType: ECommandType) => boolean;
+}
+
+export abstract class AbstractCommandHandler implements ICommandHandler {
+  abstract commandTypes: ECommandType[];
+  abstract handle(command: ICommand): void;
+  isCommandType(commandType: ECommandType) {
+    return this.commandTypes.includes(commandType);
+  }
+}
+
 class Command<T = typeCommand> implements ICommand<T> {
   constructor(
     public type = ECommandType.info,
     public payload: T,
     public uid = v4()
   ) {}
-}
-
-export class SystemCommand extends Command<ESystemCommandType> {
-  constructor(public payload: ESystemCommandType, uid?: string) {
-    super(ECommandType.system, payload, uid);
-  }
 }
 
 export class ErrorCommand extends Command<string> {
@@ -64,5 +74,22 @@ export class InfoCommand extends Command<string> {
 export class CodeCommand extends Command<string> {
   constructor(public payload: string) {
     super(ECommandType.code, payload);
+  }
+}
+
+export class SystemCommand extends Command<ESystemCommandType> {
+  constructor(public payload: ESystemCommandType, uid?: string) {
+    super(ECommandType.system, payload, uid);
+  }
+}
+
+export class CompleteCommand extends SystemCommand {
+  constructor(uid: string) {
+    super(ESystemCommandType.completeCommand, uid);
+  }
+}
+export class ChildStoppedCommand extends SystemCommand {
+  constructor() {
+    super(ESystemCommandType.childStopped);
   }
 }
