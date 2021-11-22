@@ -40,7 +40,7 @@ class HandleSystemCommand extends AbstractCommandHandler<OwnerProcessModel> {
         this.targetObject.pushChildProcessCommand(command);
         break;
       case ESystemCommandType.start:
-        this.targetObject.childWorker.workerRef = this.targetObject.runWorker();
+        this.targetObject.runWorker();
         break;
       case ESystemCommandType.isStarted:
         this.targetObject.childWorker.status = EStatusProcess.worked;
@@ -110,6 +110,7 @@ export class OwnerProcessModel extends BaseWorkerModel {
       );
     });
     this.childWorker.status = EStatusProcess.worked;
+    this.childWorker.workerRef = worker;
     return worker;
   }
 
