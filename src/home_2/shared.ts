@@ -20,7 +20,7 @@ export abstract class BaseWorkerModel {
       .filter((handler) => handler.isCommandType(сommand.type))
       .forEach((c) => {
         try {
-          c.handle.bind(this)(сommand);
+          c.handle(сommand);
         } catch (ex) {
           this.allCommands.unshift(new ErrorCommand(ex as string));
         }
