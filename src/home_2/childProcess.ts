@@ -9,7 +9,7 @@ import {
 } from "./models";
 import { BaseWorkerModel } from "./shared";
 
-class HandleInfoCommand extends AbstractCommandHandler {
+class HandleInfoCommand extends AbstractCommandHandler<ChildWorkerModel> {
   commandTypes = [ECommandType.info];
   handle(command: ICommand<string>) {
     console.info("child process info:", command.payload);
@@ -17,7 +17,7 @@ class HandleInfoCommand extends AbstractCommandHandler {
   }
 }
 
-class HandleErrorCommand extends AbstractCommandHandler {
+class HandleErrorCommand extends AbstractCommandHandler<ChildWorkerModel> {
   commandTypes = [ECommandType.error];
   handle(command: ICommand<string>) {
     console.error("child process error:", command);
@@ -25,7 +25,7 @@ class HandleErrorCommand extends AbstractCommandHandler {
   }
 }
 
-class HandleCodeCommand extends AbstractCommandHandler {
+class HandleCodeCommand extends AbstractCommandHandler<ChildWorkerModel> {
   commandTypes = [ECommandType.code];
   handle(command: ICommand<string>) {
     eval(command.payload);
@@ -33,16 +33,14 @@ class HandleCodeCommand extends AbstractCommandHandler {
   }
 }
 
-class HandleSystemCommand extends AbstractCommandHandler {
+class HandleSystemCommand extends AbstractCommandHandler<ChildWorkerModel> {
   commandTypes = [ECommandType.system];
   handle(command: ICommand<ESystemCommandType>) {
-    // @ts-ignore
-    const self = this as BaseWorkerModel;
     switch (command.payload) {
       case ESystemCommandType.softStop:
-        const oldEvalCommand = self.evolveCommand;
-        self.evolveCommand = () => {
-          if (!self.allCommands.length) {
+        const oldEvalCommand = this.targetObject.evolveCommand;
+        this.targetObject.evolveCommand = () => {
+          if (!this.targetObject.allCommands.length) {
             parentPort.postMessage(new ChildStoppedCommand());
             process.exit(0);
           }
@@ -61,10 +59,10 @@ class ChildWorkerModel extends BaseWorkerModel {
   constructor() {
     super();
     this.handlers.push(
-      new HandleInfoCommand(),
-      new HandleErrorCommand(),
-      new HandleCodeCommand(),
-      new HandleSystemCommand()
+      new HandleInfoCommand(this),
+      new HandleErrorCommand(this),
+      new HandleCodeCommand(this),
+      new HandleSystemCommand(this)
     );
   }
 }

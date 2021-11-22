@@ -43,9 +43,10 @@ export interface ICommandHandler {
   isCommandType: (commandType: ECommandType) => boolean;
 }
 
-export abstract class AbstractCommandHandler implements ICommandHandler {
+export abstract class AbstractCommandHandler<T> implements ICommandHandler {
   abstract commandTypes: ECommandType[];
   abstract handle(command: ICommand): void;
+  constructor(protected targetObject: T) {}
   isCommandType(commandType: ECommandType) {
     return this.commandTypes.includes(commandType);
   }
