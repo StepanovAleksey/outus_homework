@@ -17,9 +17,9 @@ test("child process is started ", () => {
   });
 
   ownerProcess.registerCommand(startMessage);
-  ownerProcess.registerCommand(new InfoCommand("команда info"));
+  ownerProcess.registerCommand(new InfoCommand("команда info. test 1"));
   ownerProcess.registerCommand(
-    new CodeCommand(`console.info("это динамический код.", 3+4);`)
+    new CodeCommand(`console.info("это динамический код. test 1");`)
   );
   ownerProcess.registerCommand(hardStopMessage);
 });
@@ -30,7 +30,7 @@ test("hard stop", () => {
   const hardStopMessage = new SystemCommand(ESystemCommandType.hardStop);
 
   ownerProcess.addSystemMsgCollback(
-    ESystemCommandType.commandComplete,
+    ESystemCommandType.completeCommand,
     (command) => {
       if (hardStopMessage.uid === command.uid) {
         expect(ownerProcess.childWorker.status).toEqual(EStatusProcess.stopped);
@@ -39,11 +39,11 @@ test("hard stop", () => {
   );
 
   ownerProcess.registerCommand(startMessage);
-  ownerProcess.registerCommand(new InfoCommand("команда info"));
-  ownerProcess.registerCommand(
-    new CodeCommand(`console.info("это динамический код.", 3+4);`)
-  );
+  ownerProcess.registerCommand(new InfoCommand("команда info. test 2"));
   ownerProcess.registerCommand(hardStopMessage);
+  ownerProcess.registerCommand(
+    new CodeCommand(`console.info("это динамический код. test 2");`)
+  );
 });
 
 test("soft stop and command queue equal 0", () => {
@@ -52,19 +52,26 @@ test("soft stop and command queue equal 0", () => {
   const softStopMessage = new SystemCommand(ESystemCommandType.softStop);
 
   ownerProcess.addSystemMsgCollback(
-    ESystemCommandType.commandComplete,
+    ESystemCommandType.completeCommand,
     (command) => {
       if (softStopMessage.uid === command.uid) {
+        expect(ownerProcess.childWorker.status).toEqual(EStatusProcess.worked);
         expect(ownerProcess.allCommands.length).toEqual(0);
       }
     }
   );
 
   ownerProcess.registerCommand(startMessage);
-  ownerProcess.registerCommand(new InfoCommand("команда info"));
-  ownerProcess.registerCommand(
-    new CodeCommand(`console.info("это динамический код.", 1+2)`)
-  );
+  ownerProcess.registerCommand(new InfoCommand("команда info. test 3"));
 
+  ownerProcess.registerCommand(
+    new CodeCommand(`console.info("это динамический код 1. test 3")`)
+  );
+  ownerProcess.registerCommand(
+    new CodeCommand(`console.info("это динамический код 2. test 3")`)
+  );
+  ownerProcess.registerCommand(
+    new CodeCommand(`console.info("это динамический код 3. test 3")`)
+  );
   ownerProcess.registerCommand(softStopMessage);
 });

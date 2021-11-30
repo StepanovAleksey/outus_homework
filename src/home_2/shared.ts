@@ -1,22 +1,9 @@
-import {
-  ECommandType,
-  ESystemCommandType,
-  ICommand,
-  SystemCommand,
-} from "./models";
-
-type handleFuncType = (command: ICommand) => any;
+import { ErrorCommand, ICommand, ICommandHandler } from "./models";
 
 export abstract class BaseWorkerModel {
   allCommands: ICommand[] = [];
   protected isEvolveCommand = false;
-
-  private handleDictionary: Record<ECommandType, handleFuncType> = {
-    [ECommandType.code]: this.handleCodeCommand.bind(this),
-    [ECommandType.error]: this.handleErrorCommand.bind(this),
-    [ECommandType.system]: this.handleSystemCommand.bind(this),
-    [ECommandType.info]: this.handleInfoCommand.bind(this),
-  };
+  handlers: ICommandHandler[] = [];
 
   constructor() {}
 
@@ -24,40 +11,21 @@ export abstract class BaseWorkerModel {
     this.allCommands.push(command);
     this.evolveCommand();
   }
-  protected evolveCommand() {
-    if (this.isEvolveCommand) {
+  public evolveCommand() {
+    const сommand = this.allCommands.shift();
+    if (!сommand) {
       return;
     }
-    try {
-      const command = this.allCommands.shift();
-      this.isEvolveCommand = !!command;
-      if (!this.isEvolveCommand) {
-        return;
-      }
-      this.handleDictionary[command.type](command);
-      this.isEvolveCommand = false;
-      this.parentCmpleteCommandMessage(command.uid);
+    this.handlers
+      .filter((handler) => handler.isCommandType(сommand.type))
+      .forEach((c) => {
+        try {
+          c.handle(сommand);
+        } catch (ex) {
+          this.allCommands.unshift(new ErrorCommand(ex as string));
+        }
+      });
 
-      this.evolveCommand();
-    } catch (error) {
-      throw error;
-    } finally {
-      this.isEvolveCommand = false;
-    }
+    this.evolveCommand();
   }
-
-  protected parentCmpleteCommandMessage(commandUId: string) {
-    this.sendParentCommand(
-      new SystemCommand(ESystemCommandType.commandComplete, commandUId)
-    );
-  }
-
-  protected abstract sendParentCommand(command: ICommand);
-
-  protected abstract handleInfoCommand(command: ICommand<string>): any;
-  protected abstract handleErrorCommand(command: ICommand<string>): any;
-  protected abstract handleSystemCommand(
-    command: ICommand<ESystemCommandType>
-  ): any;
-  protected abstract handleCodeCommand(command: ICommand<string>): any;
 }
