@@ -5,7 +5,8 @@
   "main": "index.ts",
   "scripts": {
     "test": "jest",
-    "start:dev": "npx tsc && nodemon"
+    "start:dev": "npx tsc && nodemon",
+    "runFile": "npx ts-node src/home_4/home4.test.ts"
   },
   "author": "Alexey Stepanov",
   "license": "ISC",
