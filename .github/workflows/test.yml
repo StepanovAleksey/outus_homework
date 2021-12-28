@@ -24,3 +24,6 @@ jobs:
 
       - name: Run tests work 3
         run: npm run test --findRelatedTests home_3/home3.test.ts
+
+      - name: Run tests work 4
+        run: npm run test --findRelatedTests home_4/home4.test.ts
