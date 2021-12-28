@@ -4,66 +4,50 @@ import {
   //CreateIocCommand,
   IIoC,
   AddIoCRegisterCommand,
-  IoCScopeMacroCommand,
+  IoCScopeMacroCommand as AddIoCScopeMacroCommand,
   IoCModel,
-  CreateResolveCommand,
+  SetResolveContextCommand,
 } from "./model";
 
-const IoC: IIoC = new IoCModel(null);  
-
-new CreateResolveCommand(IoC).execute();
-
+const IoC: IIoC = new IoCModel(null);
+new SetResolveContextCommand(IoC).execute();
 new AddIoCRegisterCommand(IoC).execute();
 
-IoC.Resolve<ICommand>(
-  EBASE_IOC_COMMAND["IoC.Register"],
-  "summ",
-  function (...args) {
-    return { result: args.reduce((a, b) => a + b, 0) };
-  }
-).execute();
+test("test register IoC", () => {
+  IoC.Resolve<ICommand>(
+    EBASE_IOC_COMMAND["IoC.Register"],
+    "summ",
+    function (...args) {
+      return args.reduce((a, b) => a + b, 0);
+    }
+  ).execute();
+  expect(IoC.Resolve<object>("summ", 1, 2, 3, 4, 5)).toEqual(15);
+});
 
-const singlToneObj = { a: "a", b: "b" };
+test("test scope IoC", () => {
+  new AddIoCScopeMacroCommand(IoC).execute();
 
-IoC.Resolve<ICommand>(
-  EBASE_IOC_COMMAND["IoC.Register"],
-  "singlTone",
-  function () {
-    return singlToneObj;
-  }
-).execute();
-
-const test1 = IoC.Resolve<object>("summ", 1, 2, 3, 4, 5);
-const test2 = IoC.Resolve<object>("singlTone");
-
-new IoCScopeMacroCommand(IoC).execute();
-IoC.Resolve<ICommand>(EBASE_IOC_COMMAND["Scope.New"], "test1").execute();
-IoC.Resolve<ICommand>(EBASE_IOC_COMMAND["Scope.New"], "test2").execute();
-
-IoC.Resolve<ICommand>(EBASE_IOC_COMMAND["Scope.Current"], "test1").execute();
-
-IoC.Resolve<ICommand>(
-  EBASE_IOC_COMMAND["IoC.Register"],
-  "summ",
-  function (...args) {
-    return { result: args.reduce((a, b) => a + b, 10) };
-  }
-).execute();
-
-IoC.Resolve<ICommand>(EBASE_IOC_COMMAND["Scope.Current"], "parent").execute();
-IoC.Resolve<ICommand>(EBASE_IOC_COMMAND["Scope.Current"], "test2").execute();
-
-IoC.Resolve<ICommand>(
-  EBASE_IOC_COMMAND["IoC.Register"],
-  "summ",
-  function (...args) {
-    return { result: args.reduce((a, b) => a + b, 20) };
-  }
-).execute();
-const test4 = IoC.Resolve<object>("summ", 1, 2, 3, 4, 5);
-console.log(test4);
-
-IoC.Resolve<ICommand>(EBASE_IOC_COMMAND["Scope.Current"], "parent").execute();
-IoC.Resolve<ICommand>(EBASE_IOC_COMMAND["Scope.Current"], "test1").execute();
-const test3 = IoC.Resolve<object>("summ", 1, 2, 3, 4, 5);
-console.log(test3);
+  IoC.Resolve<ICommand>(EBASE_IOC_COMMAND["Scope.New"], "test1").execute();
+  IoC.Resolve<ICommand>(EBASE_IOC_COMMAND["Scope.New"], "test2").execute();
+  IoC.Resolve<ICommand>(EBASE_IOC_COMMAND["Scope.Current"], "test1").execute();
+  IoC.Resolve<ICommand>(
+    EBASE_IOC_COMMAND["IoC.Register"],
+    "summ",
+    function (...args) {
+      return args.reduce((a, b) => a + b, 10);
+    }
+  ).execute();
+  IoC.Resolve<ICommand>(EBASE_IOC_COMMAND["Scope.Current"], "parent").execute();
+  IoC.Resolve<ICommand>(EBASE_IOC_COMMAND["Scope.Current"], "test2").execute();
+  IoC.Resolve<ICommand>(
+    EBASE_IOC_COMMAND["IoC.Register"],
+    "summ",
+    function (...args) {
+      return args.reduce((a, b) => a + b, 20);
+    }
+  ).execute();
+  expect(IoC.Resolve<object>("summ", 1, 2, 3, 4, 5)).toEqual(35);
+  IoC.Resolve<ICommand>(EBASE_IOC_COMMAND["Scope.Current"], "parent").execute();
+  IoC.Resolve<ICommand>(EBASE_IOC_COMMAND["Scope.Current"], "test1").execute();
+  expect(IoC.Resolve<object>("summ", 1, 2, 3, 4, 5)).toEqual(25);
+});

@@ -8,28 +8,30 @@ export interface IIoC {
 
 export class IoCModel implements IIoC {
   Resolve = null;
-  constructor(public parent: IIoC) { }
+  constructor(public parent: IIoC) {}
 }
 
-export class CreateResolveCommand implements ICommand {
-  constructor(private context: IIoC) { }
+export class SetResolveContextCommand implements ICommand {
+  constructor(private context: IIoC) {}
   execute(): void {
     let ownerIoC = this.context;
     while (!!ownerIoC.parent) {
       ownerIoC = ownerIoC.parent;
     }
-
+    const self = this;
     ownerIoC.Resolve = (key: string, ...args: any[]) => {
-      let findResolve = this.context[key];
-      while (!findResolve && this.context.parent) {
-        findResolve = this.context.parent[key];
+      let findResolve = self.context[key];
+      let parent = self.context.parent;
+      while (!findResolve && parent) {
+        findResolve = parent[key];
+        parent = parent?.parent;
       }
       if (!findResolve) {
         throw new Error(
           `key resolve not found. key: ${key}; args: ${JSON.stringify(args)}`
         );
       }
-      return findResolve.apply(this.context, args) as any;
+      return findResolve.apply(self.context, args) as any;
     };
   }
 }
@@ -39,7 +41,7 @@ class RegisterCommand implements ICommand {
     private ioc: object,
     private objKeyName: string,
     private objClass: (...args) => any
-  ) { }
+  ) {}
   execute(): void {
     this.ioc[this.objKeyName] = this.objClass;
   }
@@ -47,7 +49,7 @@ class RegisterCommand implements ICommand {
 
 /** регистрация "IoC.Register" */
 export class AddIoCRegisterCommand implements ICommand {
-  constructor(private ioc: IIoC) { }
+  constructor(private ioc: IIoC) {}
   execute(): void {
     this.ioc[EIOC_COMMAND["IoC.Register"]] = function (
       objKeyName: string,
@@ -59,22 +61,21 @@ export class AddIoCRegisterCommand implements ICommand {
 }
 
 class ScopeNewCommand implements ICommand {
-  constructor(private ioc: IIoC, private scopeId: string) { }
+  constructor(private ioc: IIoC, private scopeId: string) {}
   execute(): void {
     this.ioc["scopes"] = this.ioc["scopes"] || {};
     this.ioc["scopes"][this.scopeId] = new IoCModel(this.ioc);
-    new CreateResolveCommand(this.ioc["scopes"][this.scopeId]).execute();
   }
 }
 
 class ScopeCurrentCommand implements ICommand {
-  constructor(private ioc: IIoC, private scopeId: string) { }
+  constructor(private ioc: IIoC, private scopeId: string) {}
   execute(): void {
     const context: IIoC =
       this.scopeId !== "parent"
         ? this.ioc["scopes"][this.scopeId]
         : this.ioc.parent || this.ioc;
-    new CreateResolveCommand(context).execute();
+    new SetResolveContextCommand(context).execute();
     // let ownerIoC = this.ioc;
     // while (!!ownerIoC.parent) {
     //   ownerIoC = ownerIoC.parent;
@@ -102,7 +103,7 @@ class ScopeCurrentCommand implements ICommand {
 
 /** добавление скопов "Scope.New", "Scope.Current" */
 export class IoCScopeMacroCommand implements ICommand {
-  constructor(private ioc: IIoC) { }
+  constructor(private ioc: IIoC) {}
   execute(): void {
     const _self = this;
     this.ioc
