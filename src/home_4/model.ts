@@ -8,23 +8,28 @@ export interface IIoC {
 
 export class IoCModel implements IIoC {
   Resolve = null;
-  constructor(public parent: IIoC) {}
+  constructor(public parent: IIoC) { }
 }
 
 export class CreateResolveCommand implements ICommand {
-  constructor(private ioc: IIoC) {}
+  constructor(private context: IIoC) { }
   execute(): void {
-    this.ioc.Resolve = function (key: string, ...args: any[]) {
-      let findResolve = this[key];
-      while (!findResolve && this.parent) {
-        findResolve = this.parent[key];
+    let ownerIoC = this.context;
+    while (!!ownerIoC.parent) {
+      ownerIoC = ownerIoC.parent;
+    }
+
+    ownerIoC.Resolve = (key: string, ...args: any[]) => {
+      let findResolve = this.context[key];
+      while (!findResolve && this.context.parent) {
+        findResolve = this.context.parent[key];
       }
       if (!findResolve) {
         throw new Error(
           `key resolve not found. key: ${key}; args: ${JSON.stringify(args)}`
         );
       }
-      return findResolve.apply(this, args) as any;
+      return findResolve.apply(this.context, args) as any;
     };
   }
 }
@@ -34,7 +39,7 @@ class RegisterCommand implements ICommand {
     private ioc: object,
     private objKeyName: string,
     private objClass: (...args) => any
-  ) {}
+  ) { }
   execute(): void {
     this.ioc[this.objKeyName] = this.objClass;
   }
@@ -42,7 +47,7 @@ class RegisterCommand implements ICommand {
 
 /** регистрация "IoC.Register" */
 export class AddIoCRegisterCommand implements ICommand {
-  constructor(private ioc: IIoC) {}
+  constructor(private ioc: IIoC) { }
   execute(): void {
     this.ioc[EIOC_COMMAND["IoC.Register"]] = function (
       objKeyName: string,
@@ -54,7 +59,7 @@ export class AddIoCRegisterCommand implements ICommand {
 }
 
 class ScopeNewCommand implements ICommand {
-  constructor(private ioc: IIoC, private scopeId: string) {}
+  constructor(private ioc: IIoC, private scopeId: string) { }
   execute(): void {
     this.ioc["scopes"] = this.ioc["scopes"] || {};
     this.ioc["scopes"][this.scopeId] = new IoCModel(this.ioc);
@@ -63,36 +68,41 @@ class ScopeNewCommand implements ICommand {
 }
 
 class ScopeCurrentCommand implements ICommand {
-  constructor(private ioc: IIoC, private scopeId: string) {}
+  constructor(private ioc: IIoC, private scopeId: string) { }
   execute(): void {
-    let ownerIoC = this.ioc;
-    while (!!ownerIoC.parent) {
-      ownerIoC = ownerIoC.parent;
-    }
-
     const context: IIoC =
       this.scopeId !== "parent"
         ? this.ioc["scopes"][this.scopeId]
-        : this.ioc.parent || ownerIoC;
+        : this.ioc.parent || this.ioc;
+    new CreateResolveCommand(context).execute();
+    // let ownerIoC = this.ioc;
+    // while (!!ownerIoC.parent) {
+    //   ownerIoC = ownerIoC.parent;
+    // }
 
-    ownerIoC.Resolve = function (key: string, ...args: any[]) {
-      let findResolve = context[key];
-      while (!findResolve && context.parent) {
-        findResolve = context.parent[key];
-      }
-      if (!findResolve) {
-        throw new Error(
-          `key resolve not found. key: ${key}; args: ${JSON.stringify(args)}`
-        );
-      }
-      return findResolve.apply(context, args) as any;
-    };
+    // const context: IIoC =
+    //   this.scopeId !== "parent"
+    //     ? this.ioc["scopes"][this.scopeId]
+    //     : this.ioc.parent || ownerIoC;
+
+    // ownerIoC.Resolve = function (key: string, ...args: any[]) {
+    //   let findResolve = context[key];
+    //   while (!findResolve && context.parent) {
+    //     findResolve = context.parent[key];
+    //   }
+    //   if (!findResolve) {
+    //     throw new Error(
+    //       `key resolve not found. key: ${key}; args: ${JSON.stringify(args)}`
+    //     );
+    //   }
+    //   return findResolve.apply(context, args) as any;
+    // };
   }
 }
 
 /** добавление скопов "Scope.New", "Scope.Current" */
 export class IoCScopeMacroCommand implements ICommand {
-  constructor(private ioc: IIoC) {}
+  constructor(private ioc: IIoC) { }
   execute(): void {
     const _self = this;
     this.ioc

@@ -9,7 +9,7 @@ import {
   CreateResolveCommand,
 } from "./model";
 
-const IoC: IIoC = new IoCModel(null);
+const IoC: IIoC = new IoCModel(null);  
 
 new CreateResolveCommand(IoC).execute();
 
@@ -24,6 +24,7 @@ IoC.Resolve<ICommand>(
 ).execute();
 
 const singlToneObj = { a: "a", b: "b" };
+
 IoC.Resolve<ICommand>(
   EBASE_IOC_COMMAND["IoC.Register"],
   "singlTone",
