@@ -18,10 +18,9 @@ export class SetResolveContextCommand implements ICommand {
     while (!!ownerIoC.parent) {
       ownerIoC = ownerIoC.parent;
     }
-    const self = this;
     ownerIoC.Resolve = (key: string, ...args: any[]) => {
-      let findResolve = self.context[key];
-      let parent = self.context.parent;
+      let findResolve = this.context[key];
+      let parent = this.context.parent;
       while (!findResolve && parent) {
         findResolve = parent[key];
         parent = parent?.parent;
@@ -31,7 +30,7 @@ export class SetResolveContextCommand implements ICommand {
           `key resolve not found. key: ${key}; args: ${JSON.stringify(args)}`
         );
       }
-      return findResolve.apply(self.context, args) as any;
+      return findResolve.apply(this.context, args) as any;
     };
   }
 }
