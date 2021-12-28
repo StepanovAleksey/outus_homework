@@ -76,28 +76,6 @@ class ScopeCurrentCommand implements ICommand {
         ? this.ioc["scopes"][this.scopeId]
         : this.ioc.parent || this.ioc;
     new SetResolveContextCommand(context).execute();
-    // let ownerIoC = this.ioc;
-    // while (!!ownerIoC.parent) {
-    //   ownerIoC = ownerIoC.parent;
-    // }
-
-    // const context: IIoC =
-    //   this.scopeId !== "parent"
-    //     ? this.ioc["scopes"][this.scopeId]
-    //     : this.ioc.parent || ownerIoC;
-
-    // ownerIoC.Resolve = function (key: string, ...args: any[]) {
-    //   let findResolve = context[key];
-    //   while (!findResolve && context.parent) {
-    //     findResolve = context.parent[key];
-    //   }
-    //   if (!findResolve) {
-    //     throw new Error(
-    //       `key resolve not found. key: ${key}; args: ${JSON.stringify(args)}`
-    //     );
-    //   }
-    //   return findResolve.apply(context, args) as any;
-    // };
   }
 }
 
